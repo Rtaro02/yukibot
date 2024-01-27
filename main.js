@@ -1,0 +1,148 @@
+const puppeteer= require('puppeteer');
+const { GoogleSpreadsheet } = require('google-spreadsheet');
+const CREDENTIALS = require('./credentials.js').keys;
+const SPREADSHEET_ID = CREDENTIALS.SSID;
+const SHEET_NAME = CREDENTIALS.SHEET_NAME;
+const SHEET_AREA = CREDENTIALS.SHEET_AREA;
+const SERVICE_ACCOUNT = require('./client_secret.json');
+const LOGIN_URL = 'https://twitter.com/login'
+const TWEET_URL = 'https://twitter.com/compose/tweet'
+const USER_AGENT = 'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'
+
+async function sleep(delay) {
+    return new Promise(resolve => setTimeout(resolve, delay));
+}
+
+async function inputUserID(page) {
+    console.log('--- ユーザ名を入力 ---');
+    const inputSelector = 'input[name="text"]';
+    await page.waitForSelector(inputSelector);
+    await page.type(inputSelector, CREDENTIALS.id);
+    console.log('--- サインインを押下 ---');
+    const buttonsSelector = 'div[role="button"]'
+    const buttons = await page.$$(buttonsSelector);
+    for(button of buttons){
+        const text = await page.evaluate(span => span.textContent, button);
+        if(text === undefined || text === null){
+            continue;
+        }
+        if(text.trim() === 'Next'){
+            await button.click();
+        }
+    };
+}
+
+async function inputPassword(page) {
+    console.log('--- パスワード入力 ---');
+    const inputSelector = 'input[name="password"]';
+    await page.waitForSelector(inputSelector);
+    await page.type(inputSelector, CREDENTIALS.password);
+
+    console.log('--- ログインを押下 ---');
+    const buttonSelector = 'div[role="button"]'
+    await page.waitForSelector(buttonSelector);
+    const buttons = await page.$$(buttonSelector);
+    for(button of buttons){
+        const text = await page.evaluate(span => span.textContent, button);
+        if(text === undefined || text === null){
+            continue;
+        }
+        if(text.trim() === 'Log in'){
+            await button.click();
+        }
+    };
+    await page.waitForNavigation({timeout: 3000, waitUntil: 'domcontentloaded'});
+}
+
+async function saveCookie(page) {
+    console.log('--- Cookie書き込み ---');
+    const doc = new GoogleSpreadsheet(SPREADSHEET_ID);
+    doc.useServiceAccountAuth(SERVICE_ACCOUNT);
+    await doc.loadInfo(); 
+    const sheet = doc.sheetsByTitle[SHEET_NAME];
+    await sheet.loadCells(SHEET_AREA);
+    const cell = sheet.getCell(0, 0);
+    const afterCookies = await page.cookies();
+    cell.value = JSON.stringify(afterCookies);
+    await sheet.saveUpdatedCells();
+}
+
+async function loadCookie() {
+    console.log('--- Cookie読み込み ---');
+    const doc = new GoogleSpreadsheet(SPREADSHEET_ID);
+    doc.useServiceAccountAuth(SERVICE_ACCOUNT);
+    await doc.loadInfo(); 
+    const sheet = doc.sheetsByTitle[SHEET_NAME];
+    await sheet.loadCells(SHEET_AREA);
+    const cookies = JSON.parse(sheet.getCell(0, 0).value);
+    return cookies;
+}
+
+async function inputTweetMessage(page) {
+    console.log('--- Tweet文言の入力 ---');
+    await page.type('div[aria-label="Post text"]', 'test');
+}
+
+async function uploadImages(page) {
+    console.log('--- 画像を追加 ---');
+    const uploadButton = await page.$('input[type="file"]');
+    await uploadButton.uploadFile('./test.jpeg');
+}
+
+async function pushTweetButton(page) {
+    console.log('--- Tweetボタン押下 ---');
+    const postSelector = 'div[data-testid="tweetButton"]';
+    await page.waitForSelector(postSelector);
+    await page.click(postSelector);
+}
+
+async function login(page) {
+    console.log('--- ログイン ---');
+    await inputUserID(page);
+    await inputPassword(page);
+    await saveCookie(page);
+}
+
+async function launch() {
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: [
+            '--incognito',
+            '--no-sandbox'
+        ]
+    });
+    const page = await browser.newPage();
+    await page.setUserAgent(USER_AGENT);
+    await page.goto(LOGIN_URL);
+
+    const cookies = await loadCookie();
+    if(!!cookies){
+        console.log('--- Cookieを確認 ---');
+        for (let cookie of cookies) {
+            await page.setCookie(cookie);
+        }
+        await page.reload();
+    } else {
+        console.log('--- Cookieは確認できませんでした ---');
+        await login(page);
+    }
+
+    await page.goto(TWEET_URL);
+    const currentUrl = page.url();
+    if(currentUrl !== TWEET_URL) {
+        // 遷移先がログイン画面の場合はログインする
+        await login(page);
+    }
+    await sleep(3000);
+    await inputTweetMessage(page);
+    await sleep(3000);
+    await uploadImages(page);
+    await sleep(3000);
+    await pushTweetButton(page);
+    await sleep(3000);
+    // await page.screenshot({ path: 'screenshot.png' });
+
+    await browser.close();
+}
+
+launch();

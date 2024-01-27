@@ -1,0 +1,6 @@
+node_modules/
+*.jpg
+*.jpeg
+*.png
+client_secret.json
+credentials.js
