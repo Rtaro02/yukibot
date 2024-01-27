@@ -1,11 +1,23 @@
-FROM ubuntu:latest
+FROM alpine:latest
 
-RUN apt-get update
-RUN apt-get install -y dnsutils curl wget iproute2
-RUN curl -fsSL https://deb.nodesource.com/setup_21.x | bash - && apt install -y nodejs
-WORKDIR /yukibot
-COPY . /yukibot
-RUN npm install
+RUN apk update
+RUN apk add chromium \
+            nss \
+            freetype \
+            freetype-dev \
+            harfbuzz \
+            ca-certificates \
+            ttf-freefont \
+            nodejs \
+            npm \
+            curl
 
-ENTRYPOINT ["node"]
-CMD ["main.js"]
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+WORKDIR /usr/app/yukibot
+COPY . /usr/app/yukibot
+RUN npm i
+
+ENTRYPOINT [ "node" ]
+CMD [ "./main.js" ]

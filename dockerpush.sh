@@ -1,3 +1,2 @@
-docker build . -t gcr.io/yukibot-0725/yukibot:latest
-docker push gcr.io/yukibot-0725/yukibot:latest
-
+docker build . -t asia-northeast1-docker.pkg.dev/yukibot-0725/yukibot:latest
+docker push asia-northeast1-docker.pkg.dev/yukibot-0725/yukibot:latest
