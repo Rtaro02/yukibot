@@ -8,6 +8,7 @@ const SERVICE_ACCOUNT = require('./client_secret.json');
 const LOGIN_URL = 'https://twitter.com/login'
 const TWEET_URL = 'https://twitter.com/compose/tweet'
 const USER_AGENT = 'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'
+const fs = require('fs').promises;
 
 async function sleep(delay) {
     return new Promise(resolve => setTimeout(resolve, delay));
@@ -78,15 +79,15 @@ async function loadCookie() {
     return cookies;
 }
 
-async function inputTweetMessage(page) {
+async function inputTweetMessage(page, text) {
     console.log('--- Tweet文言の入力 ---');
-    await page.type('div[aria-label="Post text"]', 'test');
+    await page.type('div[aria-label="Post text"]', text);
 }
 
-async function uploadImages(page) {
+async function uploadImages(page, image) {
     console.log('--- 画像を追加 ---');
     const uploadButton = await page.$('input[type="file"]');
-    await uploadButton.uploadFile('./test.jpeg');
+    await uploadButton.uploadFile(`./images/${image}`);
 }
 
 async function pushTweetButton(page) {
@@ -101,6 +102,19 @@ async function login(page) {
     await inputUserID(page);
     await inputPassword(page);
     await saveCookie(page);
+}
+
+function getRandomElement(array) {
+    const randomIndex = Math.floor(Math.random() * array.length);
+    return array[randomIndex];
+}
+
+async function getTweetContent() {
+    const data = getRandomElement(JSON.parse(await fs.readFile('./images.json', 'utf8')));
+    return {
+        description: data.description,
+        image: getRandomElement(data.images)
+    }
 }
 
 async function launch() {
@@ -133,14 +147,15 @@ async function launch() {
         // 遷移先がログイン画面の場合はログインする
         await login(page);
     }
+    const tweetContent = await getTweetContent();
     await sleep(3000);
-    await inputTweetMessage(page);
+    await inputTweetMessage(page, tweetContent.description);
     await sleep(3000);
-    await uploadImages(page);
+    await uploadImages(page, tweetContent.image);
     await sleep(3000);
     await pushTweetButton(page);
     await sleep(3000);
-    // await page.screenshot({ path: 'screenshot.png' });
+    await page.screenshot({ path: 'screenshot.png' });
 
     await browser.close();
 }
