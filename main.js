@@ -148,16 +148,33 @@ async function launch() {
         await login(page);
     }
     const tweetContent = await getTweetContent();
-    await sleep(3000);
+    console.log (`--- Tweet Content: ${JSON.stringify(tweetContent)} ---`)
+    await sleep(2000);
     await inputTweetMessage(page, tweetContent.description);
-    await sleep(3000);
+    await sleep(2000);
     await uploadImages(page, tweetContent.image);
     await sleep(3000);
     await pushTweetButton(page);
-    await sleep(3000);
-    await page.screenshot({ path: 'screenshot.png' });
 
     await browser.close();
 }
 
-launch();
+const express = require('express');
+const app = express();
+const port = 8080;
+
+const handleRequestAsync = async (req, res) => {
+    try {
+      await launch();
+      res.send('success');
+    } catch (error) {
+      console.error(error);
+      res.status(500).send('Internal Server Error');
+    }
+};
+
+app.get('/', handleRequestAsync);
+
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}/`);
+});
