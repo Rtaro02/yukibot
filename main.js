@@ -7,6 +7,7 @@ const SHEET_AREA = CREDENTIALS.SHEET_AREA;
 const SERVICE_ACCOUNT = require('./client_secret.json');
 const LOGIN_URL = 'https://twitter.com/login'
 const TWEET_URL = 'https://twitter.com/compose/tweet'
+const MYPAGE_URL = 'https://twitter.com/yukibot0725';
 const USER_AGENT = 'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'
 const fs = require('fs').promises;
 
@@ -15,11 +16,11 @@ async function sleep(delay) {
 }
 
 async function inputUserID(page) {
-    console.log('--- ユーザ名を入力 ---');
+    console.log('--- Input User Name --');
     const inputSelector = 'input[name="text"]';
     await page.waitForSelector(inputSelector);
     await page.type(inputSelector, CREDENTIALS.id);
-    console.log('--- サインインを押下 ---');
+    console.log('--- Push Signin Button ---');
     const buttonsSelector = 'div[role="button"]'
     const buttons = await page.$$(buttonsSelector);
     for(button of buttons){
@@ -34,12 +35,12 @@ async function inputUserID(page) {
 }
 
 async function inputPassword(page) {
-    console.log('--- パスワード入力 ---');
+    console.log('--- Input Password ---');
     const inputSelector = 'input[name="password"]';
     await page.waitForSelector(inputSelector);
     await page.type(inputSelector, CREDENTIALS.password);
 
-    console.log('--- ログインを押下 ---');
+    console.log('--- Push Login Button ---');
     const buttonSelector = 'div[role="button"]'
     await page.waitForSelector(buttonSelector);
     const buttons = await page.$$(buttonSelector);
@@ -56,7 +57,7 @@ async function inputPassword(page) {
 }
 
 async function saveCookie(page) {
-    console.log('--- Cookie書き込み ---');
+    console.log('--- Writing Cookie ---');
     const doc = new GoogleSpreadsheet(SPREADSHEET_ID);
     doc.useServiceAccountAuth(SERVICE_ACCOUNT);
     await doc.loadInfo(); 
@@ -69,7 +70,7 @@ async function saveCookie(page) {
 }
 
 async function loadCookie() {
-    console.log('--- Cookie読み込み ---');
+    console.log('--- Reading Cookie ---');
     const doc = new GoogleSpreadsheet(SPREADSHEET_ID);
     doc.useServiceAccountAuth(SERVICE_ACCOUNT);
     await doc.loadInfo(); 
@@ -80,25 +81,25 @@ async function loadCookie() {
 }
 
 async function inputTweetMessage(page, text) {
-    console.log('--- Tweet文言の入力 ---');
+    console.log('--- Add Tweet Text ---');
     await page.type('div[aria-label="Post text"]', text);
 }
 
 async function uploadImages(page, image) {
-    console.log('--- 画像を追加 ---');
+    console.log('--- Add Image ---');
     const uploadButton = await page.$('input[type="file"]');
     await uploadButton.uploadFile(`./images/${image}`);
 }
 
 async function pushTweetButton(page) {
-    console.log('--- Tweetボタン押下 ---');
+    console.log('--- Push Tweet Button ---');
     const postSelector = 'div[data-testid="tweetButton"]';
     await page.waitForSelector(postSelector);
     await page.click(postSelector);
 }
 
 async function login(page) {
-    console.log('--- ログイン ---');
+    console.log('--- Login ---');
     await inputUserID(page);
     await inputPassword(page);
     await saveCookie(page);
@@ -110,16 +111,22 @@ function getRandomElement(array) {
 }
 
 async function getTweetContent() {
-    const data = getRandomElement(JSON.parse(await fs.readFile('./images.json', 'utf8')));
-    return {
-        description: data.description,
-        image: getRandomElement(data.images)
-    }
+    return getRandomElement(JSON.parse(await fs.readFile('./images.json', 'utf8')));
 }
+
+async function getLatestTweetText(page) {
+    const selector = 'div[data-testid="tweetText"]';
+    await page.waitForSelector(selector);
+    const texts = await page.$$(selector);
+    const latestTweetText = await texts[0].evaluate(element => element.textContent);
+    console.log(`--- Latest tweet: ${latestTweetText} ---`);
+    return latestTweetText;
+}
+
 
 async function launch() {
     const browser = await puppeteer.launch({
-        headless: true,
+        headless: "new",
         args: [
             '--incognito',
             '--no-sandbox'
@@ -131,13 +138,13 @@ async function launch() {
 
     const cookies = await loadCookie();
     if(!!cookies){
-        console.log('--- Cookieを確認 ---');
+        console.log('--- Confirmed Cookie ---');
         for (let cookie of cookies) {
             await page.setCookie(cookie);
         }
         await page.reload();
     } else {
-        console.log('--- Cookieは確認できませんでした ---');
+        console.log('--- Failed to Confirm Cookie ---');
         await login(page);
     }
 
@@ -149,14 +156,24 @@ async function launch() {
     }
     const tweetContent = await getTweetContent();
     console.log (`--- Tweet Content: ${JSON.stringify(tweetContent)} ---`)
-    await sleep(2000);
+    await sleep(1500);
     await inputTweetMessage(page, tweetContent.description);
-    await sleep(2000);
+    await sleep(1500);
     await uploadImages(page, tweetContent.image);
     await sleep(3000);
     await pushTweetButton(page);
+    // await sleep(3000);
+
+    await page.goto(MYPAGE_URL);
+    const latestTweetText = await getLatestTweetText(page);
 
     await browser.close();
+
+    if(latestTweetText === tweetContent.description) {
+        return true;
+    } else {
+        return false
+    }
 }
 
 const express = require('express');
@@ -165,8 +182,11 @@ const port = 8080;
 
 const handleRequestAsync = async (req, res) => {
     try {
-      await launch();
-      res.send('success');
+      if(await launch()) {
+        res.send('success');
+      } else {
+        res.status(400).send('Bad Request');
+      }
     } catch (error) {
       console.error(error);
       res.status(500).send('Internal Server Error');
