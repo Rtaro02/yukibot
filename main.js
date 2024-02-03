@@ -2,8 +2,10 @@ const puppeteer= require('puppeteer');
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 const CREDENTIALS = require('./credentials.js').keys;
 const SPREADSHEET_ID = CREDENTIALS.SSID;
-const SHEET_NAME = CREDENTIALS.SHEET_NAME;
-const SHEET_AREA = CREDENTIALS.SHEET_AREA;
+const COOKIE_SHEET_NAME = CREDENTIALS.COOKIE_SHEET_NAME;
+const COOKIE_SHEET_AREA = CREDENTIALS.COOKIE_SHEET_AREA;
+const IMAGE_SHEET_NAME = CREDENTIALS.IMAGE_SHEET_NAME;
+const FLAG_HEADER = 'flag';
 const SERVICE_ACCOUNT = require('./client_secret.json');
 const LOGIN_URL = 'https://twitter.com/login'
 const TWEET_URL = 'https://twitter.com/compose/tweet'
@@ -61,8 +63,8 @@ async function saveCookie(page) {
     const doc = new GoogleSpreadsheet(SPREADSHEET_ID);
     doc.useServiceAccountAuth(SERVICE_ACCOUNT);
     await doc.loadInfo(); 
-    const sheet = doc.sheetsByTitle[SHEET_NAME];
-    await sheet.loadCells(SHEET_AREA);
+    const sheet = doc.sheetsByTitle[COOKIE_SHEET_NAME];
+    await sheet.loadCells(COOKIE_SHEET_AREA);
     const cell = sheet.getCell(0, 0);
     const afterCookies = await page.cookies();
     cell.value = JSON.stringify(afterCookies);
@@ -74,8 +76,8 @@ async function loadCookie() {
     const doc = new GoogleSpreadsheet(SPREADSHEET_ID);
     doc.useServiceAccountAuth(SERVICE_ACCOUNT);
     await doc.loadInfo(); 
-    const sheet = doc.sheetsByTitle[SHEET_NAME];
-    await sheet.loadCells(SHEET_AREA);
+    const sheet = doc.sheetsByTitle[COOKIE_SHEET_NAME];
+    await sheet.loadCells(COOKIE_SHEET_AREA);
     const cookies = JSON.parse(sheet.getCell(0, 0).value);
     return cookies;
 }
@@ -110,8 +112,49 @@ function getRandomElement(array) {
     return array[randomIndex];
 }
 
+function getObject(sheet, row) {
+    const rowData = row._rawData;
+    const headerss = sheet.headerValues;
+    const rowObject = {};
+
+    headerss.forEach((header, index) => {
+      rowObject[header] = rowData[index];
+    });
+    
+    return rowObject;
+}
+
 async function getTweetContent() {
-    return getRandomElement(JSON.parse(await fs.readFile('./images.json', 'utf8')));
+    const doc = new GoogleSpreadsheet(SPREADSHEET_ID);
+    doc.useServiceAccountAuth(SERVICE_ACCOUNT);
+    await doc.loadInfo(); 
+    const sheet = doc.sheetsByTitle[IMAGE_SHEET_NAME];
+    const rows = await sheet.getRows({
+        offset: 0,
+        limit: sheet.rowCount,
+    });
+
+    // すべてツイート済みであればフラグをクリアする
+    if(rows.filter(row => !row[FLAG_HEADER]).length == 0) {
+        for (const row of rows) {
+            row[FLAG_HEADER] = '';
+            await row.save();
+        }
+    }
+
+    // フラグ設定
+    const rowsWithoutFlag = rows.filter(row => !row[FLAG_HEADER]);
+    const randomRowIndex = Math.floor(Math.random() * rowsWithoutFlag.length);
+    const selectedRow = rowsWithoutFlag[randomRowIndex];
+    const x = getObject(sheet, selectedRow);
+    x.sheetObj = selectedRow;
+
+    return x;
+}
+
+async function onFlag(row) {
+    row[FLAG_HEADER] = 'true';
+    await row.save();
 }
 
 async function getLatestTweetText(page) {
@@ -155,14 +198,14 @@ async function launch() {
         await login(page);
     }
     const tweetContent = await getTweetContent();
-    console.log (`--- Tweet Content: ${JSON.stringify(tweetContent)} ---`)
+    console.log (`--- Tweet Content: ${tweetContent.description} ---`)
     await sleep(1500);
     await inputTweetMessage(page, tweetContent.description);
     await sleep(1500);
     await uploadImages(page, tweetContent.image);
     await sleep(3000);
     await pushTweetButton(page);
-    // await sleep(3000);
+    await sleep(3000);
 
     await page.goto(MYPAGE_URL);
     const latestTweetText = await getLatestTweetText(page);
@@ -170,6 +213,7 @@ async function launch() {
     await browser.close();
 
     if(latestTweetText === tweetContent.description) {
+        onFlag(tweetContent.sheetObj);
         return true;
     } else {
         return false
@@ -177,6 +221,7 @@ async function launch() {
 }
 
 const express = require('express');
+const { on } = require('events');
 const app = express();
 const port = 8080;
 

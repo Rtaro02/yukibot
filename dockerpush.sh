@@ -1,2 +1,4 @@
-docker build . -t asia-northeast1-docker.pkg.dev/yukibot-0725/yukibot:latest
-docker push asia-northeast1-docker.pkg.dev/yukibot-0725/yukibot:latest
+docker build . -t us-west1-docker.pkg.dev/yukibot-0725/yukibot/yukibot:latest
+docker push us-west1-docker.pkg.dev/yukibot-0725/yukibot/yukibot:latest
+gcloud artifacts docker images list us-west1-docker.pkg.dev/yukibot-0725/yukibot/yukibot
+// gcloud artifacts docker images list us-west1-docker.pkg.dev/yukibot-0725/yukibot/yukibot
