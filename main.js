@@ -7,9 +7,9 @@ const COOKIE_SHEET_AREA = CREDENTIALS.COOKIE_SHEET_AREA;
 const IMAGE_SHEET_NAME = CREDENTIALS.IMAGE_SHEET_NAME;
 const FLAG_HEADER = 'flag';
 const SERVICE_ACCOUNT = require('./client_secret.json');
-const LOGIN_URL = 'https://twitter.com/login'
-const TWEET_URL = 'https://twitter.com/compose/tweet'
-const MYPAGE_URL = 'https://twitter.com/yukibot0725';
+const LOGIN_URL = 'https://x.com/login'
+const TWEET_URL = 'https://x.com/compose/post'
+const MYPAGE_URL = 'https://x.com/yukibot0725';
 const USER_AGENT = 'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'
 const fs = require('fs').promises;
 
@@ -23,7 +23,7 @@ async function inputUserID(page) {
     await page.waitForSelector(inputSelector);
     await page.type(inputSelector, CREDENTIALS.id);
     console.log('--- Push Signin Button ---');
-    const buttonsSelector = 'div[role="button"]'
+    const buttonsSelector = 'button[role="button"]'
     const buttons = await page.$$(buttonsSelector);
     for(button of buttons){
         const text = await page.evaluate(span => span.textContent, button);
@@ -43,7 +43,7 @@ async function inputPassword(page) {
     await page.type(inputSelector, CREDENTIALS.password);
 
     console.log('--- Push Login Button ---');
-    const buttonSelector = 'div[role="button"]'
+    const buttonSelector = 'button[role="button"]'
     await page.waitForSelector(buttonSelector);
     const buttons = await page.$$(buttonSelector);
     for(button of buttons){
@@ -95,7 +95,7 @@ async function uploadImages(page, image) {
 
 async function pushTweetButton(page) {
     console.log('--- Push Tweet Button ---');
-    const postSelector = 'div[data-testid="tweetButton"]';
+    const postSelector = 'button[data-testid="tweetButton"]';
     await page.waitForSelector(postSelector);
     await page.click(postSelector);
 }
@@ -185,6 +185,7 @@ async function launch() {
         for (let cookie of cookies) {
             await page.setCookie(cookie);
         }
+        await sleep(1500);
         await page.reload();
     } else {
         console.log('--- Failed to Confirm Cookie ---');
@@ -197,6 +198,7 @@ async function launch() {
         // 遷移先がログイン画面の場合はログインする
         await login(page);
     }
+    
     const tweetContent = await getTweetContent();
     console.log (`--- Tweet Content: ${tweetContent.description} ---`)
     await sleep(1500);
