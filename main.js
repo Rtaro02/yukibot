@@ -24,6 +24,7 @@ async function inputUserID(page) {
     await page.type(inputSelector, CREDENTIALS.id);
     console.log('--- Push Signin Button ---');
     const buttonsSelector = 'button[role="button"]'
+    await page.waitForSelector(buttonsSelector);
     const buttons = await page.$$(buttonsSelector);
     for(button of buttons){
         const text = await page.evaluate(span => span.textContent, button);
@@ -44,6 +45,7 @@ async function inputPassword(page) {
 
     console.log('--- Push Login Button ---');
     const buttonSelector = 'button[role="button"]'
+    await page.waitForSelector(buttonSelector);
     await page.waitForSelector(buttonSelector);
     const buttons = await page.$$(buttonSelector);
     for(button of buttons){
@@ -84,20 +86,23 @@ async function loadCookie() {
 
 async function inputTweetMessage(page, text) {
     console.log('--- Add Tweet Text ---');
-    await page.type('div[aria-label="Post text"]', text);
+    const selector = 'div[aria-label="Post text"]';
+    await page.waitForSelector(selector);
+    await page.type(selector, text);
 }
 
 async function uploadImages(page, image) {
     console.log('--- Add Image ---');
-    const uploadButton = await page.$('input[type="file"]');
+    const selector = 'input[type="file"]';
+    const uploadButton = await page.$(selector);
     await uploadButton.uploadFile(`./images/${image}`);
 }
 
 async function pushTweetButton(page) {
     console.log('--- Push Tweet Button ---');
-    const postSelector = 'button[data-testid="tweetButton"]';
-    await page.waitForSelector(postSelector);
-    await page.click(postSelector);
+    const selector = 'button[data-testid="tweetButton"]';
+    await page.waitForSelector(selector);
+    await page.click(selector);
 }
 
 async function login(page) {
@@ -105,11 +110,6 @@ async function login(page) {
     await inputUserID(page);
     await inputPassword(page);
     await saveCookie(page);
-}
-
-function getRandomElement(array) {
-    const randomIndex = Math.floor(Math.random() * array.length);
-    return array[randomIndex];
 }
 
 function getObject(sheet, row) {
@@ -205,9 +205,9 @@ async function launch() {
     await inputTweetMessage(page, tweetContent.description);
     await sleep(1500);
     await uploadImages(page, tweetContent.image);
-    await sleep(3000);
+    await sleep(1500);
     await pushTweetButton(page);
-    await sleep(3000);
+    await sleep(1500);
 
     await page.goto(MYPAGE_URL);
     const latestTweetText = await getLatestTweetText(page);
