@@ -1,6 +1,7 @@
 {
     "dependencies": {
         "google-spreadsheet": "*",
+        "google-auth-library": "*",
         "puppeteer": "*",
         "express": "*"
     }

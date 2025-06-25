@@ -1,5 +1,6 @@
 const puppeteer= require('puppeteer');
 const { GoogleSpreadsheet } = require('google-spreadsheet');
+const { JWT } = require('google-auth-library');
 const CREDENTIALS = require('./credentials.js').keys;
 const SPREADSHEET_ID = CREDENTIALS.SSID;
 const COOKIE_SHEET_NAME = CREDENTIALS.COOKIE_SHEET_NAME;
@@ -12,6 +13,11 @@ const TWEET_URL = 'https://x.com/compose/post'
 const MYPAGE_URL = 'https://x.com/yukibot0725';
 const USER_AGENT = 'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'
 const fs = require('fs').promises;
+const serviceAccountAuth = new JWT({
+    email: SERVICE_ACCOUNT.client_email,
+    key: SERVICE_ACCOUNT.private_key.replace(/\\n/g, '\n'),
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+});
 
 async function sleep(delay) {
     return new Promise(resolve => setTimeout(resolve, delay));
@@ -62,8 +68,7 @@ async function inputPassword(page) {
 
 async function saveCookie(page) {
     console.log('--- Writing Cookie ---');
-    const doc = new GoogleSpreadsheet(SPREADSHEET_ID);
-    doc.useServiceAccountAuth(SERVICE_ACCOUNT);
+    const doc = new GoogleSpreadsheet(SPREADSHEET_ID, serviceAccountAuth);
     await doc.loadInfo(); 
     const sheet = doc.sheetsByTitle[COOKIE_SHEET_NAME];
     await sheet.loadCells(COOKIE_SHEET_AREA);
@@ -75,8 +80,7 @@ async function saveCookie(page) {
 
 async function loadCookie() {
     console.log('--- Reading Cookie ---');
-    const doc = new GoogleSpreadsheet(SPREADSHEET_ID);
-    doc.useServiceAccountAuth(SERVICE_ACCOUNT);
+    const doc = new GoogleSpreadsheet(SPREADSHEET_ID, serviceAccountAuth);
     await doc.loadInfo(); 
     const sheet = doc.sheetsByTitle[COOKIE_SHEET_NAME];
     await sheet.loadCells(COOKIE_SHEET_AREA);
@@ -125,8 +129,7 @@ function getObject(sheet, row) {
 }
 
 async function getTweetContent() {
-    const doc = new GoogleSpreadsheet(SPREADSHEET_ID);
-    doc.useServiceAccountAuth(SERVICE_ACCOUNT);
+    const doc = new GoogleSpreadsheet(SPREADSHEET_ID, serviceAccountAuth);
     await doc.loadInfo(); 
     const sheet = doc.sheetsByTitle[IMAGE_SHEET_NAME];
     const rows = await sheet.getRows({
@@ -222,26 +225,19 @@ async function launch() {
     }
 }
 
-const express = require('express');
-const { on } = require('events');
-const app = express();
-const port = 8080;
-
-const handleRequestAsync = async (req, res) => {
+async function main() {
     try {
-      if(await launch()) {
-        res.send('success');
-      } else {
-        res.status(400).send('Bad Request');
-      }
-    } catch (error) {
-      console.error(error);
-      res.status(500).send('Internal Server Error');
+        const result = await launch();
+        if (!result) {
+            console.error('--- Launch failed: Tweet not confirmed ---');
+            process.exit(1);
+        }
+        process.exit(0);
+    } catch (err) {
+        console.error('--- Fatal error in launch ---');
+        console.error(err);
+        process.exit(1);
     }
-};
+}
 
-app.get('/', handleRequestAsync);
-
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}/`);
-});
+main()

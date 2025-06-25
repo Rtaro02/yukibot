@@ -1,7 +1,8 @@
 FROM --platform=linux/amd64 alpine:latest
 
 RUN apk update
-RUN apk add chromium \
+RUN apk --no-cache add\
+            chromium \
             nss \
             freetype \
             freetype-dev \
