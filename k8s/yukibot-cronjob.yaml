@@ -1,0 +1,17 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: yukibot-cronjob
+spec:
+  schedule: "0 8-22 * * *"
+  suspend: false
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: yukibot
+            image: us-west1-docker.pkg.dev/yukibot-0725/yukibot/yukibot:latest
+          imagePullSecrets:
+            - name: artifact-registry-secret
+          restartPolicy: Never

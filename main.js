@@ -1,13 +1,13 @@
 const puppeteer= require('puppeteer');
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 const { JWT } = require('google-auth-library');
-const CREDENTIALS = require('./credentials.js').keys;
+const CREDENTIALS = require('./secrets/credentials.js').keys;
 const SPREADSHEET_ID = CREDENTIALS.SSID;
 const COOKIE_SHEET_NAME = CREDENTIALS.COOKIE_SHEET_NAME;
 const COOKIE_SHEET_AREA = CREDENTIALS.COOKIE_SHEET_AREA;
 const IMAGE_SHEET_NAME = CREDENTIALS.IMAGE_SHEET_NAME;
 const FLAG_HEADER = 'flag';
-const SERVICE_ACCOUNT = require('./client_secret.json');
+const SERVICE_ACCOUNT = require('./secrets/client_secret.json');
 const LOGIN_URL = 'https://x.com/login'
 const TWEET_URL = 'https://x.com/compose/post'
 const MYPAGE_URL = 'https://x.com/yukibot0725';
