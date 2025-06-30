@@ -2,6 +2,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: yukibot-cronjob
+  namespace: yukibot
 spec:
   schedule: "0 8-22 * * *"
   suspend: false
