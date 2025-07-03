@@ -3,7 +3,7 @@ kind: CronJob
 metadata:
   name: yukibot-cronjob
 spec:
-  schedule: "0 8-22 * * *"
+  schedule: "0 0-12 * * *" # Every hour from 09:00 to 21:00 JST
   suspend: false
   jobTemplate:
     spec:
